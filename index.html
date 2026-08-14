@@ -54,47 +54,47 @@
 
         const ROMS = {
             "michaeljacksonmd": {
-                "url": "Michael Jackson Moonwalker.bin",
+                "url": "https://derekcrato.github.io/nfcteste/Michael Jackson Moonwalker.bin",
                 "system": "genesis_plus_gx",
                 "name": "Michael Jackson's Moonwalker"
             },
             "pokemonblue": {
-                "url": "Pokemon - Blue Version.gb",
+                "url": "https://derekcrato.github.io/nfcteste/Pokemon - Blue Version.gb",
                 "system": "gambatte",
                 "name": "Pokemon Blue"
             },
             "pokemonfirered": {
-                "url": "Pokemon - FireRed.gba",
+                "url": "https://derekcrato.github.io/nfcteste/Pokemon - FireRed.gba",
                 "system": "mgba",
                 "name": "Pokemon Fire Red"
             },
             "pokemonred": {
-                "url": "Pokemon - Red Version.gb",
+                "url": "https://derekcrato.github.io/nfcteste/Pokemon - Red Version.gb",
                 "system": "gambatte",
                 "name": "Pokemon Red"
             },
             "pokemonyellow": {
-                "url": "Pokemon - Yellow Version.gbc",
+                "url": "https://derekcrato.github.io/nfcteste/Pokemon - Yellow Version.gbc",
                 "system": "gambatte",
                 "name": "Pokemon Yellow"
             },
             "sapoxule": {
-                "url": "Sapo Xule vs. Os Invasores do Brejo.bin",
+                "url": "https://derekcrato.github.io/nfcteste/Sapo Xule vs. Os Invasores do Brejo.bin",
                 "system": "smsplus",
                 "name": "Sapo Xule vs. Os Invasores do Brejo"
             },
             "bomberman5": {
-                "url": "Super Bomberman 5.sfc",
+                "url": "https://derekcrato.github.io/nfcteste/Super Bomberman 5.sfc",
                 "system": "snes9x",
                 "name": "Super Bomberman 5"
             },
             "supermariobors3": {
-                "url": "Super Mario Bros. 3 (USA).nes",
+                "url": "https://derekcrato.github.io/nfcteste/Super Mario Bros. 3 (USA).nes",
                 "system": "fceumm",
                 "name": "Super Mario Bros 3"
             },
             "supermarioworld": {
-                "url": "Super Mario World (USA).sfc",
+                "url": "https://derekcrato.github.io/nfcteste/Super Mario World (USA).sfc",
                 "system": "snes9x",
                 "name": "Super Mario World"
             }
@@ -219,8 +219,20 @@
                 window.removeEventListener('EJS_ready', onReady);
             });
 
-            setInterval(saveSRAM, 30000);
-            window.addEventListener('beforeunload', saveSRAM);
+            setInterval(function() {
+                try {
+                    if (typeof EJS_saveSRAM === 'function') EJS_saveSRAM();
+                    const sramData = typeof EJS_getSaveData === 'function' ? EJS_getSaveData() : null;
+                    if (sramData) localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
+                } catch(e) {}
+            }, 30000);
+            window.addEventListener('beforeunload', function() {
+                try {
+                    if (typeof EJS_saveSRAM === 'function') EJS_saveSRAM();
+                    const sramData = typeof EJS_getSaveData === 'function' ? EJS_getSaveData() : null;
+                    if (sramData) localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
+                } catch(e) {}
+            });
         })();
     </script>
 </body>
