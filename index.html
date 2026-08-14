@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <title>NFC Arcade</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100vw; height: 100vh;
+            background: #000; color: #fff;
+            overflow: hidden; font-family: Arial, sans-serif;
+        }
+        #display {
+            width: 100vw; height: 100vh;
+            position: absolute; top: 0; left: 0;
+        }
+        #save-status {
+            position: fixed; top: 10px; right: 10px;
+            background: rgba(0,0,0,0.7); color: #0f0;
+            padding: 6px 12px; border-radius: 6px;
+            font-size: 0.8rem; z-index: 50;
+            display: none;
+        }
+        #save-controls {
+            position: fixed; top: 10px; left: 10px;
+            z-index: 50; display: flex; gap: 6px;
+        }
+        #save-controls button {
+            background: rgba(0,0,0,0.6); color: #0f0;
+            border: 1px solid #0f0; border-radius: 6px;
+            padding: 6px 10px; font-size: 0.8rem; cursor: pointer;
+        }
+        #save-controls button:hover { background: rgba(0,255,0,0.2); }
+    </style>
+</head>
+<body>
+    <div id="display"></div>
+    <div id="save-status">SALVO</div>
+    <div id="save-controls">
+        <button id="btn-save" title="Salvar agora">SALVAR</button>
+        <button id="btn-export" title="Exportar save .sav">EXPORTAR</button>
+        <button id="btn-import" title="Importar save .sav">IMPORTAR</button>
+        <input type="file" id="file-import" accept=".sav,.bin,.json" style="display:none" />
+    </div>
+    <script>
+        const display = document.getElementById('display');
+        const saveStatus = document.getElementById('save-status');
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameKey = urlParams.get('rom') || urlParams.get('game') || 'supermarioworld';
+
+        const ROMS = {
+            "michaeljacksonmd": {
+                        "url": "https://raw.githubusercontent.com/derekcrato/nfcgames/main/Michael%20Jackson%20Moonwalker.bin",
+                        "system": "genesis_plus_gx",
+                        "name": "Michael Jackson's Moonwalker"
+            },
+            "pokemonblue": {
+                        "url": "https://raw.githubusercontent.com/derekcrato/nfcgames/main/Pokemon%20-%20Blue%20Version.gb",
+                        "system": "gambatte",
+                        "name": "Pokemon Blue"
+            },
+            "pokemonfirered": {
+                        "url": "https://raw.githubusercontent.com/derekcrato/nfcgames/main/Pokemon%20-%20FireRed.gba",
+                        "system": "mgba",
+                        "name": "Pokemon Fire Red"
+            },
+            "pokemonred": {
+                        "url": "https://raw.githubusercontent.com/derekcrato/nfcgames/main/Pokemon%20-%20Red%20Version.gb",
+                        "system": "gambatte",
+                        "name": "Pokemon Red"
+            },
+            "pokemonyellow": {
+                        "url": "https://raw.githubusercontent.com/derekcrato/nfcgames/main/Pokemon%20-%20Yellow%20Version.gbc",
+                        "system": "gambatte",
+                        "name": "Pokemon Yellow"
+            },
+            "sapoxule": {
+                        "url": "https://raw.githubusercontent.com/derekcrato/nfcgames/main/Sapo%20Xule%20vs.%20Os%20Invasores%20do%20Brejo.bin",
+                        "system": "smsplus",
+                        "name": "Sapo Xule vs. Os Invasores do Brejo"
+            },
+            "bomberman5": {
+                        "url": "https://raw.githubusercontent.com/derekcrato/nfcgames/main/Super%20Bomberman%205.sfc",
+                        "system": "snes9x",
+                        "name": "Super Bomberman 5"
+            },
+            "supermariobors3": {
+                        "url": "https://raw.githubusercontent.com/derekcrato/nfcgames/main/Super%20Mario%20Bros.%203%20(USA).nes",
+                        "system": "fceumm",
+                        "name": "Super Mario Bros 3"
+            },
+            "supermarioworld": {
+                        "url": "https://raw.githubusercontent.com/derekcrato/nfcgames/main/Super%20Mario%20World%20(USA).sfc",
+                        "system": "snes9x",
+                        "name": "Super Mario World"
+            }
+};
+
+        function flashSaveStatus() {
+            saveStatus.style.display = 'block';
+            setTimeout(() => { saveStatus.style.display = 'none'; }, 1500);
+        }
+
+        function getSaveData() {
+            return new Promise((resolve) => {
+                try {
+                    if (typeof EJS_getSaveData === 'function') {
+                        const data = EJS_getSaveData();
+                        resolve(data || null);
+                        return;
+                    }
+                } catch(e) {}
+                resolve(null);
+            });
+        }
+
+        async function saveSRAM() {
+            try {
+                if (typeof EJS_saveSRAM === 'function') EJS_saveSRAM();
+                const sramData = await getSaveData();
+                if (sramData) {
+                    localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
+                    flashSaveStatus();
+                }
+            } catch(e) {}
+        }
+
+        async function exportSave() {
+            try {
+                const sramData = await getSaveData();
+                if (!sramData) {
+                    alert('Nenhum save encontrado para exportar.');
+                    return;
+                }
+                const blob = new Blob([JSON.stringify(sramData)], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = gameKey + '_sram.sav';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch(e) {
+                alert('Erro ao exportar save: ' + e.message);
+            }
+        }
+
+        function importSave() {
+            document.getElementById('file-import').click();
+        }
+
+        async function handleImportFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch {
+                    data = { sram: Array.from(new Uint8Array(await file.arrayBuffer())) };
+                }
+                if (data && typeof EJS_setSaveData === 'function') {
+                    EJS_setSaveData(data);
+                } else if (data) {
+                    localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(data));
+                }
+                alert('Save importado com sucesso! O jogo ira carregar o save ao reiniciar.');
+            } catch(err) {
+                alert('Erro ao importar save: ' + err.message);
+            }
+            e.target.value = '';
+        }
+
+        document.getElementById('btn-save').addEventListener('click', saveSRAM);
+        document.getElementById('btn-export').addEventListener('click', exportSave);
+        document.getElementById('btn-import').addEventListener('click', importSave);
+        document.getElementById('file-import').addEventListener('change', handleImportFile);
+
+        (function initGame() {
+            const gameData = ROMS[gameKey];
+            if (!gameData) {
+                display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Jogo nao encontrado: ' + gameKey + '</p>';
+                return;
+            }
+
+            const rawRomUrl = gameData.url;
+            const cleanUrl = encodeURI(rawRomUrl);
+            const safeRomUrl = 'https://corsproxy.io/?' + encodeURIComponent(cleanUrl);
+
+            window.EJS_player = '#display';
+            window.EJS_core = gameData.system || 'snes9x';
+            window.EJS_gameUrl = safeRomUrl;
+            window.EJS_gameName = gameKey;
+            window.EJS_startOnLoaded = true;
+            window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+            window.EJS_color = '#000000';
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+            script.onerror = function() {
+                display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Erro ao carregar emulador</p>';
+            };
+            document.body.appendChild(script);
+
+            const savedSRAM = localStorage.getItem('EJS_SAVE_SRAM_' + gameKey);
+            if (savedSRAM) {
+                try {
+                    const sramData = JSON.parse(savedSRAM);
+                    if (typeof EJS_setSaveData === 'function') {
+                        window.addEventListener('EJS_ready', function onReady() {
+                            EJS_setSaveData(sramData);
+                            window.removeEventListener('EJS_ready', onReady);
+                        }, { once: true });
+                    }
+                } catch(e) {}
+            }
+
+            setInterval(saveSRAM, 30000);
+            window.addEventListener('beforeunload', saveSRAM);
+        })();
+    </script>
+</body>
+</html>
