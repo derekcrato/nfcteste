@@ -195,17 +195,22 @@
                 await waitForEJS(20000);
                 logDebug('EmulatorJS carregado');
 
-                if (typeof EJS_setSaveData === 'function') {
-                    const saved = localStorage.getItem('EJS_SAVE_SRAM_' + gameKey);
-                    if (saved) {
-                        try {
-                            const sramData = JSON.parse(saved);
-                            EJS_setSaveData(sramData);
-                            logDebug('Save SRAM restaurado');
-                        } catch (e) {
-                            logDebug('Falha ao restaurar save: ' + e.message);
-                        }
+                if (typeof EJS_saveSRAM === 'function') {
+                    logDebug('EJS_saveSRAM disponivel');
+                    EJS_saveSRAM();
+                } else {
+                    logDebug('EJS_saveSRAM indisponivel');
+                }
+
+                if (typeof EJS_getSaveData === 'function') {
+                    const sramData = EJS_getSaveData();
+                    logDebug('EJS_getSaveData: ' + JSON.stringify(sramData).substring(0, 200));
+                    if (sramData) {
+                        localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
+                        logDebug('Save SRAM salvo no localStorage');
                     }
+                } else {
+                    logDebug('EJS_getSaveData indisponivel');
                 }
             } catch (e) {
                 logDebug('Falha na inicializacao do emulador: ' + e.message);
