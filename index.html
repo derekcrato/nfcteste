@@ -39,31 +39,12 @@
             border: 0 !important;
             object-fit: contain;
         }
-        #debug {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.85);
-            color: #ffaa00;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            max-width: 90vw;
-            max-height: 40vh;
-            overflow: auto;
-            z-index: 999;
-            display: none;
-            white-space: pre-wrap;
-        }
-        #debug.show { display: block; }
     </style>
 </head>
 <body>
     <div id="display"></div>
-    <div id="debug"></div>
     <script>
         const display = document.getElementById('display');
-        const debugEl = document.getElementById('debug');
         const urlParams = new URLSearchParams(window.location.search);
         const gameKey = urlParams.get('rom') || urlParams.get('game') || 'supermarioworld';
 
@@ -115,63 +96,10 @@
             }
         };
 
-        function logDebug(msg) {
-            console.log('[NFCArcade] ' + msg);
-            debugEl.textContent += msg + '\n';
-            debugEl.classList.add('show');
-        }
-
-        function clearDebug() {
-            debugEl.textContent = '';
-            debugEl.classList.remove('show');
-        }
-
-        async function waitForEJS(timeout) {
-            return new Promise((resolve, reject) => {
-                const start = Date.now();
-                const check = () => {
-                    if (typeof window.EJS !== 'undefined' || typeof window.EJS_player !== 'undefined') {
-                        resolve(true);
-                        return;
-                    }
-                    if (Date.now() - start > timeout) {
-                        reject(new Error('timeout'));
-                        return;
-                    }
-                    setTimeout(check, 200);
-                };
-                check();
-            });
-        }
-
-        async function tryFetchRom(url) {
-            logDebug('Validando ROM: ' + url);
-            try {
-                const res = await fetch(url, { method: 'HEAD', mode: 'cors' });
-                logDebug('Status ROM: ' + res.status + ' ' + res.statusText);
-                if (!res.ok) throw new Error('ROM not reachable');
-                return true;
-            } catch (e) {
-                logDebug('Falha HEAD request: ' + e.message);
-                return false;
-            }
-        }
-
-        (async function initGame() {
+        (function initGame() {
             const gameData = ROMS[gameKey];
             if (!gameData) {
                 display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Jogo nao encontrado: ' + gameKey + '</p>';
-                return;
-            }
-
-            clearDebug();
-            logDebug('Jogo: ' + gameData.name);
-            logDebug('Sistema: ' + gameData.system);
-            logDebug('URL ROM: ' + gameData.url);
-
-            const reachable = await tryFetchRom(gameData.url);
-            if (!reachable) {
-                display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">ROM indisponivel para este jogo.<br>Verifique o arquivo no repositório.</p>';
                 return;
             }
 
@@ -186,53 +114,22 @@
             const script = document.createElement('script');
             script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
             script.onerror = function() {
-                logDebug('Erro ao carregar loader.js');
                 display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Erro ao carregar emulador</p>';
             };
             document.body.appendChild(script);
 
-            try {
-                await waitForEJS(20000);
-                logDebug('EmulatorJS carregado');
-
-                if (typeof EJS_saveSRAM === 'function') {
-                    logDebug('EJS_saveSRAM disponivel');
-                    EJS_saveSRAM();
-                } else {
-                    logDebug('EJS_saveSRAM indisponivel');
-                }
-
-                if (typeof EJS_getSaveData === 'function') {
-                    const sramData = EJS_getSaveData();
-                    logDebug('EJS_getSaveData: ' + JSON.stringify(sramData).substring(0, 200));
-                    if (sramData) {
-                        localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
-                        logDebug('Save SRAM salvo no localStorage');
-                    }
-                } else {
-                    logDebug('EJS_getSaveData indisponivel');
-                }
-            } catch (e) {
-                logDebug('Falha na inicializacao do emulador: ' + e.message);
-                display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Erro ao iniciar o jogo.<br>Abra o console (F12) para detalhes.</p>';
-            }
+            window.addEventListener('EJS_ready', function onReady() {
+                window.removeEventListener('EJS_ready', onReady);
+            });
 
             setInterval(function() {
                 try {
                     if (typeof EJS_saveSRAM === 'function') EJS_saveSRAM();
-                    if (typeof EJS_getSaveData === 'function') {
-                        const sramData = EJS_getSaveData();
-                        if (sramData) localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
-                    }
                 } catch(e) {}
             }, 30000);
             window.addEventListener('beforeunload', function() {
                 try {
                     if (typeof EJS_saveSRAM === 'function') EJS_saveSRAM();
-                    if (typeof EJS_getSaveData === 'function') {
-                        const sramData = EJS_getSaveData();
-                        if (sramData) localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
-                    }
                 } catch(e) {}
             });
         })();
