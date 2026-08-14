@@ -54,51 +54,51 @@
 
         const ROMS = {
             "michaeljacksonmd": {
-                        "url": "https://raw.githubusercontent.com/derekcrato/nfcteste/main/Michael%20Jackson%20Moonwalker.bin",
-                        "system": "genesis_plus_gx",
-                        "name": "Michael Jackson's Moonwalker"
+                "url": "Michael Jackson Moonwalker.bin",
+                "system": "genesis_plus_gx",
+                "name": "Michael Jackson's Moonwalker"
             },
             "pokemonblue": {
-                        "url": "https://raw.githubusercontent.com/derekcrato/nfcteste/main/Pokemon%20-%20Blue%20Version.gb",
-                        "system": "gambatte",
-                        "name": "Pokemon Blue"
+                "url": "Pokemon - Blue Version.gb",
+                "system": "gambatte",
+                "name": "Pokemon Blue"
             },
             "pokemonfirered": {
-                        "url": "https://raw.githubusercontent.com/derekcrato/nfcteste/main/Pokemon%20-%20FireRed.gba",
-                        "system": "mgba",
-                        "name": "Pokemon Fire Red"
+                "url": "Pokemon - FireRed.gba",
+                "system": "mgba",
+                "name": "Pokemon Fire Red"
             },
             "pokemonred": {
-                        "url": "https://raw.githubusercontent.com/derekcrato/nfcteste/main/Pokemon%20-%20Red%20Version.gb",
-                        "system": "gambatte",
-                        "name": "Pokemon Red"
+                "url": "Pokemon - Red Version.gb",
+                "system": "gambatte",
+                "name": "Pokemon Red"
             },
             "pokemonyellow": {
-                        "url": "https://raw.githubusercontent.com/derekcrato/nfcteste/main/Pokemon%20-%20Yellow%20Version.gbc",
-                        "system": "gambatte",
-                        "name": "Pokemon Yellow"
+                "url": "Pokemon - Yellow Version.gbc",
+                "system": "gambatte",
+                "name": "Pokemon Yellow"
             },
             "sapoxule": {
-                        "url": "https://raw.githubusercontent.com/derekcrato/nfcteste/main/Sapo%20Xule%20vs.%20Os%20Invasores%20do%20Brejo.bin",
-                        "system": "smsplus",
-                        "name": "Sapo Xule vs. Os Invasores do Brejo"
+                "url": "Sapo Xule vs. Os Invasores do Brejo.bin",
+                "system": "smsplus",
+                "name": "Sapo Xule vs. Os Invasores do Brejo"
             },
             "bomberman5": {
-                        "url": "https://raw.githubusercontent.com/derekcrato/nfcteste/main/Super%20Bomberman%205.sfc",
-                        "system": "snes9x",
-                        "name": "Super Bomberman 5"
+                "url": "Super Bomberman 5.sfc",
+                "system": "snes9x",
+                "name": "Super Bomberman 5"
             },
             "supermariobors3": {
-                        "url": "https://raw.githubusercontent.com/derekcrato/nfcteste/main/Super%20Mario%20Bros.%203%20(USA).nes",
-                        "system": "fceumm",
-                        "name": "Super Mario Bros 3"
+                "url": "Super Mario Bros. 3 (USA).nes",
+                "system": "fceumm",
+                "name": "Super Mario Bros 3"
             },
             "supermarioworld": {
-                        "url": "https://raw.githubusercontent.com/derekcrato/nfcteste/main/Super%20Mario%20World%20(USA).sfc",
-                        "system": "snes9x",
-                        "name": "Super Mario World"
+                "url": "Super Mario World (USA).sfc",
+                "system": "snes9x",
+                "name": "Super Mario World"
             }
-};
+        };
 
         function flashSaveStatus() {
             saveStatus.style.display = 'block';
@@ -182,86 +182,13 @@
         document.getElementById('btn-import').addEventListener('click', importSave);
         document.getElementById('file-import').addEventListener('change', handleImportFile);
 
-        function loadWithProxy(url, proxy, attempt) {
-            return new Promise((resolve, reject) => {
-                const proxied = proxy ? proxy + encodeURIComponent(url) : url;
-                window.EJS_player = '#display';
-                window.EJS_core = gameData.system || 'snes9x';
-                window.EJS_gameUrl = proxied;
-                window.EJS_gameName = gameKey;
-                window.EJS_startOnLoaded = true;
-                window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-                window.EJS_color = '#000000';
-
-                let resolved = false;
-                const timeout = setTimeout(() => {
-                    if (!resolved) {
-                        resolved = true;
-                        reject(new Error('timeout'));
-                    }
-                }, 15000);
-
-                window.addEventListener('EJS_ready', function onReady() {
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timeout);
-                        window.removeEventListener('EJS_ready', onReady);
-                        resolve();
-                    }
-                }, { once: true });
-
-                window.addEventListener('EJS_error', function onError() {
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timeout);
-                        window.removeEventListener('EJS_error', onError);
-                        reject(new Error('EJS_error'));
-                    }
-                }, { once: true });
-
-                const script = document.createElement('script');
-                script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
-                script.onerror = function() {
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timeout);
-                        reject(new Error('loader_error'));
-                    }
-                };
-                document.body.appendChild(script);
-            });
-        }
-
-        async function tryLoadGame() {
+        (function initGame() {
             const gameData = ROMS[gameKey];
             if (!gameData) {
                 display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Jogo nao encontrado: ' + gameKey + '</p>';
                 return;
             }
 
-            const rawRomUrl = gameData.url;
-            const proxies = [
-                null,
-                'https://corsproxy.io/?',
-                'https://api.allorigins.win/raw?url=',
-                'https://thingproxy.freeboard.io/fetch/'
-            ];
-
-            for (let i = 0; i < proxies.length; i++) {
-                try {
-                    display.innerHTML = '<p style="color:#00ffcc;text-align:center;padding:20px;">Carregando...</p>';
-                    await loadWithProxy(rawRomUrl, proxies[i], i);
-                    return;
-                } catch (e) {
-                    console.warn('Falha ao carregar com proxy ' + i + ':', e);
-                    display.innerHTML = '<p style="color:#ffaa00;text-align:center;padding:20px;">Tentando outro metodo...</p>';
-                }
-            }
-
-            display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Erro de conexao. Nao foi possivel carregar o jogo.<br>Tente novamente mais tarde.</p>';
-        }
-
-        (function initGame() {
             const savedSRAM = localStorage.getItem('EJS_SAVE_SRAM_' + gameKey);
             if (savedSRAM) {
                 try {
@@ -270,13 +197,26 @@
                 } catch(e) {}
             }
 
-            tryLoadGame().then(() => {
+            window.EJS_player = '#display';
+            window.EJS_core = gameData.system || 'snes9x';
+            window.EJS_gameUrl = gameData.url;
+            window.EJS_gameName = gameKey;
+            window.EJS_startOnLoaded = true;
+            window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+            window.EJS_color = '#000000';
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+            script.onerror = function() {
+                display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Erro ao carregar emulador</p>';
+            };
+            document.body.appendChild(script);
+
+            window.addEventListener('EJS_ready', function onReady() {
                 if (window._pendingSRAM && typeof EJS_setSaveData === 'function') {
-                    window.addEventListener('EJS_ready', function onReady() {
-                        EJS_setSaveData(window._pendingSRAM);
-                        window.removeEventListener('EJS_ready', onReady);
-                    }, { once: true });
+                    EJS_setSaveData(window._pendingSRAM);
                 }
+                window.removeEventListener('EJS_ready', onReady);
             });
 
             setInterval(saveSRAM, 30000);
