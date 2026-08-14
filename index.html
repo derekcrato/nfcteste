@@ -10,45 +10,41 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
-            width: 100vw; height: 100vh;
-            background: #000; color: #fff;
-            overflow: hidden; font-family: Arial, sans-serif;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            position: fixed;
+            top: 0;
+            left: 0;
         }
         #display {
-            width: 100vw; height: 100vh;
-            position: absolute; top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: 0;
         }
-        #save-status {
-            position: fixed; top: 10px; right: 10px;
-            background: rgba(0,0,0,0.7); color: #0f0;
-            padding: 6px 12px; border-radius: 6px;
-            font-size: 0.8rem; z-index: 50;
-            display: none;
+        #display iframe,
+        #display canvas,
+        #display video {
+            width: 100vw !important;
+            height: 100vh !important;
+            height: 100dvh !important;
+            border: 0 !important;
+            object-fit: contain;
         }
-        #save-controls {
-            position: fixed; top: 10px; left: 10px;
-            z-index: 50; display: flex; gap: 6px;
-        }
-        #save-controls button {
-            background: rgba(0,0,0,0.6); color: #0f0;
-            border: 1px solid #0f0; border-radius: 6px;
-            padding: 6px 10px; font-size: 0.8rem; cursor: pointer;
-        }
-        #save-controls button:hover { background: rgba(0,255,0,0.2); }
     </style>
 </head>
 <body>
     <div id="display"></div>
-    <div id="save-status">SALVO</div>
-    <div id="save-controls">
-        <button id="btn-save" title="Salvar agora">SALVAR</button>
-        <button id="btn-export" title="Exportar save .sav">EXPORTAR</button>
-        <button id="btn-import" title="Importar save .sav">IMPORTAR</button>
-        <input type="file" id="file-import" accept=".sav,.bin,.json" style="display:none" />
-    </div>
     <script>
         const display = document.getElementById('display');
-        const saveStatus = document.getElementById('save-status');
         const urlParams = new URLSearchParams(window.location.search);
         const gameKey = urlParams.get('rom') || urlParams.get('game') || 'supermarioworld';
 
@@ -100,101 +96,11 @@
             }
         };
 
-        function flashSaveStatus() {
-            saveStatus.style.display = 'block';
-            setTimeout(() => { saveStatus.style.display = 'none'; }, 1500);
-        }
-
-        function getSaveData() {
-            return new Promise((resolve) => {
-                try {
-                    if (typeof EJS_getSaveData === 'function') {
-                        const data = EJS_getSaveData();
-                        resolve(data || null);
-                        return;
-                    }
-                } catch(e) {}
-                resolve(null);
-            });
-        }
-
-        async function saveSRAM() {
-            try {
-                if (typeof EJS_saveSRAM === 'function') EJS_saveSRAM();
-                const sramData = await getSaveData();
-                if (sramData) {
-                    localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
-                    flashSaveStatus();
-                }
-            } catch(e) {}
-        }
-
-        async function exportSave() {
-            try {
-                const sramData = await getSaveData();
-                if (!sramData) {
-                    alert('Nenhum save encontrado para exportar.');
-                    return;
-                }
-                const blob = new Blob([JSON.stringify(sramData)], { type: 'application/octet-stream' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = gameKey + '_sram.sav';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            } catch(e) {
-                alert('Erro ao exportar save: ' + e.message);
-            }
-        }
-
-        function importSave() {
-            document.getElementById('file-import').click();
-        }
-
-        async function handleImportFile(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            try {
-                const text = await file.text();
-                let data;
-                try {
-                    data = JSON.parse(text);
-                } catch {
-                    data = { sram: Array.from(new Uint8Array(await file.arrayBuffer())) };
-                }
-                if (data && typeof EJS_setSaveData === 'function') {
-                    EJS_setSaveData(data);
-                } else if (data) {
-                    localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(data));
-                }
-                alert('Save importado com sucesso! O jogo ira carregar o save ao reiniciar.');
-            } catch(err) {
-                alert('Erro ao importar save: ' + err.message);
-            }
-            e.target.value = '';
-        }
-
-        document.getElementById('btn-save').addEventListener('click', saveSRAM);
-        document.getElementById('btn-export').addEventListener('click', exportSave);
-        document.getElementById('btn-import').addEventListener('click', importSave);
-        document.getElementById('file-import').addEventListener('change', handleImportFile);
-
         (function initGame() {
             const gameData = ROMS[gameKey];
             if (!gameData) {
                 display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Jogo nao encontrado: ' + gameKey + '</p>';
                 return;
-            }
-
-            const savedSRAM = localStorage.getItem('EJS_SAVE_SRAM_' + gameKey);
-            if (savedSRAM) {
-                try {
-                    const sramData = JSON.parse(savedSRAM);
-                    window._pendingSRAM = sramData;
-                } catch(e) {}
             }
 
             window.EJS_player = '#display';
@@ -212,25 +118,35 @@
             };
             document.body.appendChild(script);
 
-            window.addEventListener('EJS_ready', function onReady() {
-                if (window._pendingSRAM && typeof EJS_setSaveData === 'function') {
-                    EJS_setSaveData(window._pendingSRAM);
-                }
-                window.removeEventListener('EJS_ready', onReady);
-            });
+            if (typeof EJS_setSaveData === 'function') {
+                window.addEventListener('EJS_ready', function onReady() {
+                    try {
+                        const saved = localStorage.getItem('EJS_SAVE_SRAM_' + gameKey);
+                        if (saved) {
+                            const sramData = JSON.parse(saved);
+                            EJS_setSaveData(sramData);
+                        }
+                    } catch(e) {}
+                    window.removeEventListener('EJS_ready', onReady);
+                });
+            }
 
             setInterval(function() {
                 try {
                     if (typeof EJS_saveSRAM === 'function') EJS_saveSRAM();
-                    const sramData = typeof EJS_getSaveData === 'function' ? EJS_getSaveData() : null;
-                    if (sramData) localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
+                    if (typeof EJS_getSaveData === 'function') {
+                        const sramData = EJS_getSaveData();
+                        if (sramData) localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
+                    }
                 } catch(e) {}
             }, 30000);
             window.addEventListener('beforeunload', function() {
                 try {
                     if (typeof EJS_saveSRAM === 'function') EJS_saveSRAM();
-                    const sramData = typeof EJS_getSaveData === 'function' ? EJS_getSaveData() : null;
-                    if (sramData) localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
+                    if (typeof EJS_getSaveData === 'function') {
+                        const sramData = EJS_getSaveData();
+                        if (sramData) localStorage.setItem('EJS_SAVE_SRAM_' + gameKey, JSON.stringify(sramData));
+                    }
                 } catch(e) {}
             });
         })();
