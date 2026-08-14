@@ -182,7 +182,57 @@
         document.getElementById('btn-import').addEventListener('click', importSave);
         document.getElementById('file-import').addEventListener('change', handleImportFile);
 
-        (function initGame() {
+        function loadWithProxy(url, proxy, attempt) {
+            return new Promise((resolve, reject) => {
+                const proxied = proxy ? proxy + encodeURIComponent(url) : url;
+                window.EJS_player = '#display';
+                window.EJS_core = gameData.system || 'snes9x';
+                window.EJS_gameUrl = proxied;
+                window.EJS_gameName = gameKey;
+                window.EJS_startOnLoaded = true;
+                window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+                window.EJS_color = '#000000';
+
+                let resolved = false;
+                const timeout = setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        reject(new Error('timeout'));
+                    }
+                }, 15000);
+
+                window.addEventListener('EJS_ready', function onReady() {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeout);
+                        window.removeEventListener('EJS_ready', onReady);
+                        resolve();
+                    }
+                }, { once: true });
+
+                window.addEventListener('EJS_error', function onError() {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeout);
+                        window.removeEventListener('EJS_error', onError);
+                        reject(new Error('EJS_error'));
+                    }
+                }, { once: true });
+
+                const script = document.createElement('script');
+                script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+                script.onerror = function() {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeout);
+                        reject(new Error('loader_error'));
+                    }
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        async function tryLoadGame() {
             const gameData = ROMS[gameKey];
             if (!gameData) {
                 display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Jogo nao encontrado: ' + gameKey + '</p>';
@@ -190,36 +240,44 @@
             }
 
             const rawRomUrl = gameData.url;
-            const cleanUrl = encodeURI(rawRomUrl);
-            const safeRomUrl = 'https://corsproxy.io/?' + encodeURIComponent(cleanUrl);
+            const proxies = [
+                null,
+                'https://corsproxy.io/?',
+                'https://api.allorigins.win/raw?url=',
+                'https://thingproxy.freeboard.io/fetch/'
+            ];
 
-            window.EJS_player = '#display';
-            window.EJS_core = gameData.system || 'snes9x';
-            window.EJS_gameUrl = safeRomUrl;
-            window.EJS_gameName = gameKey;
-            window.EJS_startOnLoaded = true;
-            window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-            window.EJS_color = '#000000';
+            for (let i = 0; i < proxies.length; i++) {
+                try {
+                    display.innerHTML = '<p style="color:#00ffcc;text-align:center;padding:20px;">Carregando...</p>';
+                    await loadWithProxy(rawRomUrl, proxies[i], i);
+                    return;
+                } catch (e) {
+                    console.warn('Falha ao carregar com proxy ' + i + ':', e);
+                    display.innerHTML = '<p style="color:#ffaa00;text-align:center;padding:20px;">Tentando outro metodo...</p>';
+                }
+            }
 
-            const script = document.createElement('script');
-            script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
-            script.onerror = function() {
-                display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Erro ao carregar emulador</p>';
-            };
-            document.body.appendChild(script);
+            display.innerHTML = '<p style="color:red;text-align:center;padding:20px;">Erro de conexao. Nao foi possivel carregar o jogo.<br>Tente novamente mais tarde.</p>';
+        }
 
+        (function initGame() {
             const savedSRAM = localStorage.getItem('EJS_SAVE_SRAM_' + gameKey);
             if (savedSRAM) {
                 try {
                     const sramData = JSON.parse(savedSRAM);
-                    if (typeof EJS_setSaveData === 'function') {
-                        window.addEventListener('EJS_ready', function onReady() {
-                            EJS_setSaveData(sramData);
-                            window.removeEventListener('EJS_ready', onReady);
-                        }, { once: true });
-                    }
+                    window._pendingSRAM = sramData;
                 } catch(e) {}
             }
+
+            tryLoadGame().then(() => {
+                if (window._pendingSRAM && typeof EJS_setSaveData === 'function') {
+                    window.addEventListener('EJS_ready', function onReady() {
+                        EJS_setSaveData(window._pendingSRAM);
+                        window.removeEventListener('EJS_ready', onReady);
+                    }, { once: true });
+                }
+            });
 
             setInterval(saveSRAM, 30000);
             window.addEventListener('beforeunload', saveSRAM);
