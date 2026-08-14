@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <title>NFC Arcade - Launcher</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #container {
+            text-align: center;
+            padding: 20px;
+            max-width: 90vw;
+        }
+        #game-name {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #00ffcc;
+        }
+        #status {
+            font-size: 1rem;
+            margin-bottom: 20px;
+            color: #aaa;
+        }
+        #action-btn {
+            display: none;
+            padding: 15px 30px;
+            font-size: 1rem;
+            background: #00ffcc;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        #action-btn.show { display: inline-block; }
+        #debug {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.85);
+            color: #ffaa00;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            max-width: 90vw;
+            max-height: 40vh;
+            overflow: auto;
+            z-index: 999;
+            display: none;
+            white-space: pre-wrap;
+        }
+        #debug.show { display: block; }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="game-name">Carregando...</div>
+        <div id="status">Verificando app...</div>
+        <button id="action-btn">Instalar NFC Arcade</button>
+    </div>
+    <div id="debug"></div>
+
+    <script>
+        const gameNameEl = document.getElementById('game-name');
+        const statusEl = document.getElementById('status');
+        const actionBtn = document.getElementById('action-btn');
+        const debugEl = document.getElementById('debug');
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameKey = urlParams.get('game') || 'supermarioworld';
+
+        const GAMES = {
+            "michaeljacksonmd": { name: "Michael Jackson's Moonwalker" },
+            "pokemonblue": { name: "Pokemon Blue" },
+            "pokemonfirered": { name: "Pokemon Fire Red" },
+            "pokemonred": { name: "Pokemon Red" },
+            "pokemonyellow": { name: "Pokemon Yellow" },
+            "sapoxule": { name: "Sapo Xule vs. Os Invasores do Brejo" },
+            "bomberman5": { name: "Super Bomberman 5" },
+            "supermariobors3": { name: "Super Mario Bros 3" },
+            "supermarioworld": { name: "Super Mario World" }
+        };
+
+        const gameData = GAMES[gameKey] || { name: gameKey };
+        gameNameEl.textContent = gameData.name;
+
+        const APP_SCHEME = 'nfcarcade://game/' + gameKey;
+        const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.derekcrato.nfcarcade';
+        const APK_URL = 'https://derekcrato.github.io/nfcteste/app-debug.apk';
+        const DIRECT_WEB_URL = 'https://derekcrato.github.io/nfcteste/?rom=' + gameKey;
+
+        function log(msg) {
+            console.log('[Launch] ' + msg);
+            debugEl.textContent += msg + '\n';
+            debugEl.classList.add('show');
+        }
+
+        function isAndroid() {
+            return /Android/i.test(navigator.userAgent);
+        }
+
+        function isIOS() {
+            return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        }
+
+        function openApp() {
+            log('Tentando abrir app: ' + APP_SCHEME);
+            window.location.href = APP_SCHEME;
+        }
+
+        function showInstallOption() {
+            statusEl.textContent = 'App NFC Arcade nao instalado';
+            actionBtn.textContent = 'Instalar NFC Arcade';
+            actionBtn.classList.add('show');
+            actionBtn.onclick = function() {
+                if (isAndroid()) {
+                    log('Redirecionando para instalacao Android');
+                    window.location.href = APK_URL;
+                } else if (isIOS()) {
+                    log('Redirecionando para instalacao iOS');
+                    window.location.href = DIRECT_WEB_URL;
+                } else {
+                    log('Sistema nao suportado');
+                    window.location.href = DIRECT_WEB_URL;
+                }
+            };
+        }
+
+        function tryOpenApp() {
+            return new Promise((resolve) => {
+                log('Verificando se app esta instalado...');
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = APP_SCHEME;
+                document.body.appendChild(iframe);
+
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                    resolve(false);
+                }, 1500);
+            });
+        }
+
+        (async function init() {
+            log('Sistema: ' + (isAndroid() ? 'Android' : isIOS() ? 'iOS' : 'Desconhecido'));
+            log('Game: ' + gameKey);
+
+            if (isAndroid()) {
+                statusEl.textContent = 'Verificando app...';
+                const opened = await tryOpenApp();
+                if (!opened) {
+                    log('App nao detectado, mostrando opcao de instalacao');
+                    showInstallOption();
+                }
+            } else if (isIOS()) {
+                log('iOS: abrindo versao web');
+                statusEl.textContent = 'Abrindo jogo na web...';
+                setTimeout(() => {
+                    window.location.href = DIRECT_WEB_URL;
+                }, 1000);
+            } else {
+                log('Sistema nao suportado, usando web');
+                statusEl.textContent = 'Abrindo jogo na web...';
+                setTimeout(() => {
+                    window.location.href = DIRECT_WEB_URL;
+                }, 1000);
+            }
+        })();
+    </script>
+</body>
+</html>
